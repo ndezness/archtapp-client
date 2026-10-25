@@ -215,3 +215,27 @@ table.data tr:last-child td { border-bottom: none; }
   font-family: inherit;
   resize: vertical;
 }
+.feed-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 16px 0 4px; }
+.feed-filters .tabs { margin-bottom: 0; }
+.feed-filters select {
+  padding: 6px 10px;
+  border: 1px solid #ccd0da;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.feed-day {
+  margin: 24px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7385;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.feed-group { padding: 4px 20px; }
+.feed-item { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-top: 1px solid #eef0f3; font-size: 14px; }
+.feed-item:first-child { border-top: none; }
+.feed-time { width: 64px; flex-shrink: 0; color: #6b7385; font-size: 13px; padding-top: 1px; }
+.feed-body { flex: 1; }
