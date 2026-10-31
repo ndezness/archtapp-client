@@ -87,6 +87,7 @@ export default function Team() {
               <div className="row-main">
                 <strong>{u.username}</strong>
                 {isSelf && <span className="chip">you</span>}
+                {u.resetRequested && <span className="chip blocked">reset requested</span>}
               </div>
 
               <div className="row-controls">

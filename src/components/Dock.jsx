@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
+import Logo from "./Logo";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
@@ -17,7 +18,10 @@ export default function Dock() {
 
   return (
     <aside className="dock">
-      <div className="dock-brand">ArchtApp</div>
+      <div className="dock-brand">
+        <Logo size={34} />
+        <span>ArchtApp</span>
+      </div>
 
       <section>
         <h4 className="dock-heading">Quick actions</h4>

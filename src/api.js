@@ -5,7 +5,12 @@ const API = import.meta.env.VITE_API_URL;
 export const SESSION_KEY = "archtapp.session";
 
 // These calls happen before anyone is signed in, so they carry no token
-const PUBLIC_PATHS = ["/api/auth/login", "/api/auth/setup", "/api/auth/status"];
+const PUBLIC_PATHS = [
+  "/api/auth/login",
+  "/api/auth/setup",
+  "/api/auth/status",
+  "/api/auth/forgot-password",
+];
 
 function getToken() {
   try {
