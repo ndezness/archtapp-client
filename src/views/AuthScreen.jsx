@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import Logo from "../components/Logo";
 
 export default function AuthScreen() {
   const { needsSetup, notice, login, setup } = useAuth();
@@ -69,12 +68,7 @@ export default function AuthScreen() {
     }
   }
 
-  const brand = (
-    <div className="auth-brand">
-      <Logo size={40} />
-      <span>ArchtApp</span>
-    </div>
-  );
+    const brand = <img className="auth-logo" src="/logo-full.png" alt="ArchtApp" />;
 
   if (sent) {
     return (

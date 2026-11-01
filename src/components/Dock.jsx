@@ -19,7 +19,7 @@ export default function Dock() {
   return (
     <aside className="dock">
       <div className="dock-brand">
-        <Logo size={34} />
+        <Logo size={40} tile />
         <span>ArchtApp</span>
       </div>
 

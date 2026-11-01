@@ -342,3 +342,19 @@ button.secondary { background: #fff; border-color: var(--field); color: var(--te
   .stats, .stats.four { grid-template-columns: repeat(2, 1fr); }
   .row { flex-wrap: wrap; }
 }
+.logo { display: block; object-fit: contain; }
+.logo-tile { background: var(--cream); border-radius: 0.6rem; padding: 0.3rem; }
+.dock-brand .logo { width: 2.5rem; height: 2.5rem; }
+.auth-logo { display: block; width: 11rem; max-width: 100%; height: auto; margin: 0 auto 0.5rem; }
+.chip.on_hold { background: #efe6d6; color: var(--brown-600); }
+.chip.cancelled { background: var(--danger-bg); color: var(--danger); }
+
+.header-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.75rem 0 1.25rem; }
+.header-actions select {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--field);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+}

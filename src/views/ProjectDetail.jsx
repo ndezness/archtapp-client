@@ -57,20 +57,7 @@ export default function ProjectDetail() {
     <div>
       <Link className="back" to="/projects">← Projects</Link>
 
-      <h1>
-        <span className="number">{projectNumber(project.projectId)}</span>
-        {project.projectName}
-      </h1>
-      <p className="muted">
-        {project.client?.name} — {project.client?.propertyAddress}
-        {" · "}
-        <span className={`chip ${project.status === "active" ? "" : "blocked"}`}>
-          {project.status}
-        </span>
-        {project.targetCompletionDate && (
-          <> · Target: {fmtDay(project.targetCompletionDate)}</>
-        )}
-      </p>
+      <ProjectHeader project={project} balance={balance} act={act} />
 
       {actionError && <p className="error">{actionError}</p>}
 
@@ -375,5 +362,135 @@ function ActivityPanel({ project, act }) {
         ))}
       </ul>
     </section>
+  );
+}
+const STATUS_LABELS = {
+  active: "Active",
+  on_hold: "On hold",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+const dateValue = (iso) => (iso ? iso.slice(0, 10) : "");
+
+function ProjectHeader({ project, balance, act }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(null);
+
+  const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+
+  function startEdit() {
+    setForm({
+      projectName: project.projectName,
+      totalQuotedCost: project.totalQuotedCost ?? "",
+      startDate: dateValue(project.startDate),
+      targetCompletionDate: dateValue(project.targetCompletionDate),
+    });
+    setEditing(true);
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    if (!form.projectName.trim()) return;
+    const ok = await act(() =>
+      put(`/api/projects/${project.projectId}`, {
+        projectName: form.projectName.trim(),
+        totalQuotedCost: form.totalQuotedCost === "" ? null : Number(form.totalQuotedCost),
+        startDate: form.startDate || null,
+        targetCompletionDate: form.targetCompletionDate || null,
+      })
+    );
+    if (ok) setEditing(false);
+  }
+
+  function changeStatus(next) {
+    if (next === "completed") {
+      const warnings = [];
+      const openTracks = project.tracks.filter((t) => t.status !== "completed").length;
+      if (balance > 0) warnings.push(`There is still a balance of ${money(balance)} outstanding.`);
+      if (openTracks > 0) warnings.push(`${openTracks} track(s) are not marked completed.`);
+      if (warnings.length > 0 && !window.confirm(`${warnings.join("\n")}\n\nMark the project completed anyway?`)) {
+        return;
+      }
+    } else if (next === "cancelled") {
+      if (!window.confirm("Cancel this project? It leaves the open lists, but all its records are kept.")) {
+        return;
+      }
+    }
+    act(() => put(`/api/projects/${project.projectId}/status`, { status: next }));
+  }
+
+  return (
+    <div>
+      <h1>
+        <span className="number">{projectNumber(project.projectId)}</span>
+        {project.projectName}
+      </h1>
+      <p className="muted">
+        <Link className="row-link" to={`/clients/${project.clientId}`}>
+          {project.client?.name}
+        </Link>
+        {" — "}
+        {project.client?.propertyAddress}
+        {project.startDate && <> · Started: {fmtDay(project.startDate)}</>}
+        {project.targetCompletionDate && <> · Target: {fmtDay(project.targetCompletionDate)}</>}
+      </p>
+
+      {!editing && (
+        <div className="header-actions">
+          <span className={`chip ${project.status}`}>
+            {STATUS_LABELS[project.status] ?? project.status}
+          </span>
+          <select
+            value={project.status}
+            onChange={(e) => changeStatus(e.target.value)}
+            aria-label="Project status"
+          >
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <button className="secondary" onClick={startEdit}>Edit details</button>
+        </div>
+      )}
+
+      {editing && (
+        <form className="panel form" onSubmit={save}>
+          <h2>Edit project details</h2>
+          <label>
+            Project name *
+            <input value={form.projectName} onChange={set("projectName")} />
+          </label>
+          <label>
+            Quoted cost
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.totalQuotedCost}
+              onChange={set("totalQuotedCost")}
+            />
+          </label>
+          <label>
+            Start date
+            <input type="date" value={form.startDate} onChange={set("startDate")} />
+          </label>
+          <label>
+            Target completion date
+            <input
+              type="date"
+              value={form.targetCompletionDate}
+              onChange={set("targetCompletionDate")}
+            />
+          </label>
+          <div className="form-actions">
+            <button type="submit" className="primary">Save changes</button>
+            <button type="button" className="secondary" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

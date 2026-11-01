@@ -67,7 +67,7 @@ export default function Dashboard() {
               checked={showClosed}
               onChange={(e) => setShowClosed(e.target.checked)}
             />
-            Show closed projects
+            Show inactive projects
           </label>
         </div>
 

@@ -13,6 +13,7 @@ import NewWorkItem from "./views/NewWorkItem";
 import Actions from "./views/Actions";
 import Team from "./views/Team";
 import Account from "./views/Account";
+import ClientDetail from "./views/ClientDetail";
 
 export default function App() {
   const { ready, session, isAdmin } = useAuth();
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/clients/new" element={<NewClient />} />
+          <Route path="/clients/:id" element={<ClientDetail />} />
           <Route
             path="/site-visits"
             element={
