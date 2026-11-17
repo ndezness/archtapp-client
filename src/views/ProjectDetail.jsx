@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, useApi } from "../api";
+import { api, apiBlob, useApi } from "../api";
 
 const projectNumber = (id) => `#${String(id).padStart(3, "0")}`;
 
@@ -69,7 +69,7 @@ export default function ProjectDetail() {
         balance={balance}
         act={act}
       />
-      <DocumentsPanel project={project} act={act} />
+      <DocumentsPanel project={project} reload={reload} />
       <ActivityPanel project={project} act={act} />
     </div>
   );
@@ -246,23 +246,129 @@ function PaymentsPanel({ project, quoted, paid, balance, act }) {
   );
 }
 
-function DocumentsPanel({ project, act }) {
-  const [fileName, setFileName] = useState("");
-  const [filePath, setFilePath] = useState("");
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const ACCEPT =
+  ".dwg,.dxf,.skp,.rvt,.ifc,.pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv";
 
-  async function add(e) {
+const kindOf = (d) =>
+  d.contentType === "application/pdf"
+    ? "pdf"
+    : d.contentType?.startsWith("image/")
+    ? "image"
+    : "other";
+
+const fmtSize = (bytes) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+function DocumentsPanel({ project, reload }) {
+  const fileInput = useRef(null);
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [localError, setLocalError] = useState(null);
+  const [preview, setPreview] = useState(null);
+
+  // Frees the temporary in-browser copy of a previewed file when it changes or closes
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
+
+  // Escape closes the preview
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [preview]);
+
+  async function run(fn) {
+    setLocalError(null);
+    try {
+      await fn();
+      reload();
+      return true;
+    } catch (err) {
+      setLocalError(err.message);
+      return false;
+    }
+  }
+
+  function pick(e) {
+    const chosen = e.target.files?.[0] ?? null;
+    setLocalError(null);
+    if (chosen && chosen.size > MAX_UPLOAD_BYTES) {
+      setLocalError("That file is over the 100 MB limit.");
+      e.target.value = "";
+      setFile(null);
+      return;
+    }
+    setFile(chosen);
+  }
+
+  async function upload(e) {
     e.preventDefault();
-    if (!fileName.trim()) return;
-    const ok = await act(() =>
-      post("/api/documents", {
-        projectId: project.projectId,
-        fileName: fileName.trim(),
-        filePath: filePath.trim() || null,
-      })
-    );
+    if (!file) return;
+    setUploading(true);
+
+    const body = new FormData();
+    body.append("projectId", String(project.projectId));
+    body.append("file", file);
+
+    const ok = await run(() => api("/api/documents/upload", { method: "POST", body }));
+    setUploading(false);
     if (ok) {
-      setFileName("");
-      setFilePath("");
+      setFile(null);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+
+  async function openPreview(d) {
+    setBusyId(d.documentId);
+    setLocalError(null);
+    try {
+      const blob = await apiBlob(`/api/documents/${d.documentId}/file`);
+      setPreview({
+        url: URL.createObjectURL(blob),
+        title: `${d.fileName} (v${d.versionNumber})`,
+        fileName: d.fileName,
+        kind: kindOf(d),
+      });
+    } catch (err) {
+      setLocalError(err.message);
+    }
+    setBusyId(null);
+  }
+
+  async function download(d) {
+    setBusyId(d.documentId);
+    setLocalError(null);
+    try {
+      const blob = await apiBlob(`/api/documents/${d.documentId}/file`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = d.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      setLocalError(err.message);
+    }
+    setBusyId(null);
+  }
+
+  function remove(d) {
+    if (
+      window.confirm(`Remove "${d.fileName}" version ${d.versionNumber}? The stored file is deleted too.`)
+    ) {
+      run(() => api(`/api/documents/${d.documentId}`, { method: "DELETE" }));
     }
   }
 
@@ -279,41 +385,88 @@ function DocumentsPanel({ project, act }) {
   return (
     <section className="panel">
       <h2>Documents</h2>
-      {docs.length === 0 && <p className="muted">No documents recorded yet.</p>}
+      {docs.length === 0 && (
+        <p className="muted">No documents yet. Upload drawings, renders or PDFs below.</p>
+      )}
 
       {docs.map((d) => {
         const isCurrent = d.versionNumber === latest[d.fileName.toLowerCase()];
+        const kind = kindOf(d);
+        const busy = busyId === d.documentId;
         return (
           <div className={`row ${isCurrent ? "" : "old"}`} key={d.documentId}>
             <div className="row-main">
               <strong>{d.fileName}</strong>
               <span className="chip">v{d.versionNumber}</span>
               {isCurrent && <span className="chip completed">current</span>}
-              {d.filePath && <span className="muted">{d.filePath}</span>}
+              {d.sizeBytes != null && <span className="muted">{fmtSize(d.sizeBytes)}</span>}
+              {!d.hasFile && (
+                <span className="muted">{d.filePath ? d.filePath : "No file stored"}</span>
+              )}
             </div>
-            <span className="muted">{fmtDateTime(d.uploadedAt)}</span>
+            <div className="row-controls">
+              <span className="muted">{fmtDateTime(d.uploadedAt)}</span>
+              {d.hasFile && kind !== "other" && (
+                <button
+                  className="link-button neutral"
+                  disabled={busy}
+                  onClick={() => openPreview(d)}
+                >
+                  Preview
+                </button>
+              )}
+              {d.hasFile && (
+                <button className="link-button neutral" disabled={busy} onClick={() => download(d)}>
+                  {busy ? "Working..." : "Download"}
+                </button>
+              )}
+              <button className="link-button" onClick={() => remove(d)}>Remove</button>
+            </div>
           </div>
         );
       })}
 
-      <form className="inline-form" onSubmit={add}>
+      <form className="inline-form" onSubmit={upload}>
         <input
-          className="grow"
-          placeholder="File name, e.g. Floor Plan.dwg"
-          value={fileName}
-          onChange={(e) => setFileName(e.target.value)}
+          ref={fileInput}
+          className="grow file-input"
+          type="file"
+          accept={ACCEPT}
+          onChange={pick}
         />
-        <input
-          className="grow"
-          placeholder="Location (optional)"
-          value={filePath}
-          onChange={(e) => setFilePath(e.target.value)}
-        />
-        <button type="submit" className="primary">Add document</button>
+        <button type="submit" className="primary" disabled={!file || uploading}>
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
       </form>
       <p className="muted hint">
-        Adding a file name that already exists records it as the next version.
+        Uploading a file with the same name as an existing one saves it as the next version. Up to
+        100 MB. Drawings (.dwg) are stored and can be downloaded; images and PDFs can also be
+        previewed here.
       </p>
+      {localError && <p className="error">{localError}</p>}
+
+      {preview && (
+        <div className="modal-backdrop" onClick={() => setPreview(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <strong>{preview.title}</strong>
+              <div className="row-controls">
+                <a className="button-link" href={preview.url} download={preview.fileName}>
+                  Download
+                </a>
+                <button className="secondary" onClick={() => setPreview(null)}>Close</button>
+              </div>
+            </div>
+            <div className="modal-body">
+              {preview.kind === "image" ? (
+                <img src={preview.url} alt={preview.title} />
+              ) : (
+                <iframe src={preview.url} title={preview.title} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
