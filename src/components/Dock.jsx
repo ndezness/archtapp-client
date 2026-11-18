@@ -4,6 +4,7 @@ import Logo from "./Logo";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
+  { to: "/leads", label: "Leads" },
   { to: "/projects", label: "Projects" },
   { to: "/clients", label: "Clients" },
   { to: "/site-visits", label: "Site Visits" },
@@ -25,9 +26,8 @@ export default function Dock() {
 
       <section>
         <h4 className="dock-heading">Quick actions</h4>
-        <button className="quick" onClick={() => go("/projects/new")}>+ New Project</button>
+        <button className="quick" onClick={() => go("/leads/new")}>+ New Lead</button>
         <button className="quick" onClick={() => go("/tasks/new")}>+ New Task</button>
-        <button className="quick" onClick={() => go("/clients/new")}>+ New Client</button>
       </section>
 
       <nav>

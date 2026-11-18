@@ -61,7 +61,7 @@ export default function NewWorkItem({ type }) {
       <div>
         <h1>{cfg.heading}</h1>
         <p className="muted">
-          This needs a project first. <Link to="/projects/new">Add a project</Link>.
+          This needs a project first. <Link to="/leads/new">Add a project</Link>.
         </p>
       </div>
     );

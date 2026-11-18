@@ -2,9 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 
-export default function NewClient() {
+export default function NewLead() {
   const go = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", phone: "", propertyAddress: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    siteAddress: "",
+    projectInterest: "",
+    notes: "",
+  });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -14,23 +21,15 @@ export default function NewClient() {
     e.preventDefault();
     setError(null);
 
-    if (!form.name.trim() || !form.propertyAddress.trim()) {
-      setError("Name and property address are required.");
+    if (!form.name.trim() || !form.siteAddress.trim()) {
+      setError("Name and site address are required.");
       return;
     }
 
     setSaving(true);
     try {
-      await api("/api/clients", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          propertyAddress: form.propertyAddress.trim(),
-        }),
-      });
-      go("/clients");
+      const lead = await api("/api/leads", { method: "POST", body: JSON.stringify(form) });
+      go(`/leads/${lead.leadId}`);
     } catch (err) {
       setError(err.message);
       setSaving(false);
@@ -39,32 +38,44 @@ export default function NewClient() {
 
   return (
     <div>
-      <h1>New Client</h1>
+      <h1>New Lead</h1>
       <form className="form" onSubmit={submit}>
         <label>
           Name *
           <input value={form.name} onChange={set("name")} />
         </label>
         <label>
-          Property address *
-          <input value={form.propertyAddress} onChange={set("propertyAddress")} />
-        </label>
-        <label>
-          Phone
+          Telephone
           <input value={form.phone} onChange={set("phone")} />
         </label>
         <label>
           Email
           <input type="email" value={form.email} onChange={set("email")} />
         </label>
+        <label>
+          Site address *
+          <input value={form.siteAddress} onChange={set("siteAddress")} />
+        </label>
+        <label>
+          Project interest
+          <input
+            placeholder="e.g. Rear extension, second storey, carport"
+            value={form.projectInterest}
+            onChange={set("projectInterest")}
+          />
+        </label>
+        <label>
+          Notes
+          <textarea rows="3" value={form.notes} onChange={set("notes")} />
+        </label>
 
         {error && <p className="error">{error}</p>}
 
         <div className="form-actions">
           <button type="submit" className="primary" disabled={saving}>
-            {saving ? "Saving..." : "Save client"}
+            {saving ? "Saving..." : "Save lead"}
           </button>
-          <button type="button" className="secondary" onClick={() => go("/clients")}>
+          <button type="button" className="secondary" onClick={() => go("/leads")}>
             Cancel
           </button>
         </div>

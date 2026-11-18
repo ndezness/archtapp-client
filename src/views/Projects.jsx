@@ -47,7 +47,7 @@ export default function Projects() {
         {shown.map((p) => (
           <Link className="card card-link" to={`/projects/${p.projectId}`} key={p.projectId}>
             <div className="card-title">
-              <span className="number">{projectNumber(p.projectId)}</span>
+              <span className="number">{p.reference ?? projectNumber(p.projectId)}</span>
               {p.projectName}
             </div>
             <div className="muted">{p.client?.name}</div>

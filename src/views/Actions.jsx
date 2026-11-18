@@ -29,6 +29,10 @@ const CATEGORY_OF = {
   work_item_reopened: "work",
   work_item_removed: "work",
   note: "notes",
+  lead_converted: "progress",
+  consultation_scheduled: "work",
+  project_updated: "progress",
+  project_status_change: "progress",
 };
 
 const categoryOf = (type) => CATEGORY_OF[type] ?? "other";

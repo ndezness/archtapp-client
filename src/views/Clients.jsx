@@ -20,7 +20,7 @@ export default function Clients() {
     <div>
       <div className="page-head">
         <h1>Clients</h1>
-        <Link className="button-link" to="/clients/new">+ New client</Link>
+        <Link className="button-link" to="/leads/new">+ New lead</Link>
       </div>
 
       <div className="tabs">

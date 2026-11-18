@@ -142,7 +142,7 @@ export default function ClientDetail() {
         <h2>Projects</h2>
         {projects.length === 0 && (
           <p className="muted">
-            No projects for this client yet. <Link to="/projects/new">Start one</Link>.
+            No projects for this client yet. <Link to="/leads/new">Start one</Link>.
           </p>
         )}
         {projects.map((p) => (
