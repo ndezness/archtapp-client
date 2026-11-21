@@ -62,6 +62,7 @@ export default function ProjectDetail() {
       {actionError && <p className="error">{actionError}</p>}
 
       <TracksPanel project={project} stages={stages ?? []} act={act} />
+      <AppointmentsPanel project={project} />
       <PaymentsPanel
         project={project}
         quoted={quoted}
@@ -575,10 +576,10 @@ function ProjectHeader({ project, balance, act }) {
 
   return (
     <div>
-      <h1>
-        <span className="number">{projectNumber(project.projectId)}</span>
-        {project.projectName}
-      </h1>
+        <h1>
+          <span className="number">{project.reference ?? projectNumber(project.projectId)}</span>
+          {project.projectName}
+        </h1>
       <p className="muted">
         <Link className="row-link" to={`/clients/${project.clientId}`}>
           {project.client?.name}
@@ -645,5 +646,48 @@ function ProjectHeader({ project, balance, act }) {
         </form>
       )}
     </div>
+  );
+}
+
+
+function AppointmentsPanel({ project }) {
+  const { data: items } = useApi(
+    `/api/workitems?type=consultation,site_visit&status=all&projectId=${project.projectId}`
+  );
+
+  // Appointment times are wall-clock times in Jamaica, so they are shown exactly as entered
+  const when = (iso) =>
+    toDate(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+
+  const sorted = [...(items ?? [])].sort((a, b) => toDate(a.dueDate) - toDate(b.dueDate));
+  const visitCount = sorted.filter((i) => i.type === "site_visit").length;
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Appointments</h2>
+        <Link className="button-link" to={`/site-visits/new?projectId=${project.projectId}`}>
+          + Schedule site visit
+        </Link>
+      </div>
+
+      {sorted.length === 0 && <p className="muted">No appointments yet.</p>}
+      {sorted.length > 0 && (
+        <p className="muted">
+          {visitCount} site {visitCount === 1 ? "visit" : "visits"} so far
+        </p>
+      )}
+
+      {sorted.map((i) => (
+        <div className={`row ${i.isDone ? "old" : ""}`} key={i.workItemId}>
+          <div className="row-main">
+            <strong>{i.type === "consultation" ? "Consultation" : `Visit ${i.visitNumber}`}</strong>
+            {i.isDone && <span className="chip completed">done</span>}
+            {i.address && <span className="muted">{i.address}</span>}
+          </div>
+          <span className="muted">{i.dueDate ? when(i.dueDate) : ""}</span>
+        </div>
+      ))}
+    </section>
   );
 }

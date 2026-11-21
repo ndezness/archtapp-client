@@ -7,7 +7,7 @@ const navItems = [
   { to: "/leads", label: "Leads" },
   { to: "/projects", label: "Projects" },
   { to: "/clients", label: "Clients" },
-  { to: "/site-visits", label: "Site Visits" },
+  { to: "/site-visits", label: "Appointments" },
   { to: "/tasks", label: "Tasks" },
   { to: "/actions", label: "Actions" },
 ];
@@ -28,6 +28,7 @@ export default function Dock() {
         <h4 className="dock-heading">Quick actions</h4>
         <button className="quick" onClick={() => go("/leads/new")}>+ New Lead</button>
         <button className="quick" onClick={() => go("/tasks/new")}>+ New Task</button>
+        <button className="quick" onClick={() => go("/site-visits/new")}>+ Site Visit</button>
       </section>
 
       <nav>

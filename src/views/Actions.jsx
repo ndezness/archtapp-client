@@ -33,6 +33,8 @@ const CATEGORY_OF = {
   consultation_scheduled: "work",
   project_updated: "progress",
   project_status_change: "progress",
+  appointment_rescheduled: "work",
+  appointment_updated: "work",
 };
 
 const categoryOf = (type) => CATEGORY_OF[type] ?? "other";
