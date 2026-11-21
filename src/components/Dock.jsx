@@ -15,7 +15,9 @@ const navItems = [
 export default function Dock() {
   const go = useNavigate();
   const { session, isAdmin, signOut } = useAuth();
-  const items = isAdmin ? [...navItems, { to: "/team", label: "Team" }] : navItems;
+  const items = isAdmin
+  ? [...navItems, { to: "/team", label: "Team" }, { to: "/settings", label: "Settings" }]
+  : navItems;
 
   return (
     <aside className="dock">

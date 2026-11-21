@@ -15,6 +15,8 @@ import NewWorkItem from "./views/NewWorkItem";
 import Actions from "./views/Actions";
 import Team from "./views/Team";
 import Account from "./views/Account";
+import Receipt from "./views/Receipt";
+import Settings from "./views/Settings";
 
 export default function App() {
   const { ready, session, isAdmin } = useAuth();
@@ -39,11 +41,11 @@ export default function App() {
             path="/site-visits"
             element={
               <WorkItems
-                type="site_visit"
-                title="Site Visits"
+                type="consultation,site_visit"
+                title="Appointments"
                 newPath="/site-visits/new"
                 newLabel="+ Schedule site visit"
-                empty="No site visits scheduled."
+                empty="No appointments scheduled."
               />
             }
           />
@@ -64,6 +66,8 @@ export default function App() {
           <Route path="/actions" element={<Actions />} />
           <Route path="/account" element={<Account />} />
           <Route path="/team" element={isAdmin ? <Team /> : <Navigate to="/" replace />} />
+          <Route path="/receipts/:id" element={<Receipt />} />
+          <Route path="/settings" element={isAdmin ? <Settings /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

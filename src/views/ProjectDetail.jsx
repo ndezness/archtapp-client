@@ -61,8 +61,9 @@ export default function ProjectDetail() {
 
       {actionError && <p className="error">{actionError}</p>}
 
-      <TracksPanel project={project} stages={stages ?? []} act={act} />
+      <TracksPanel project={project} stages={stages ?? []} act={act} reload={reload} />
       <AppointmentsPanel project={project} />
+      <MilestonesPanel project={project} />
       <PaymentsPanel
         project={project}
         quoted={quoted}
@@ -76,9 +77,132 @@ export default function ProjectDetail() {
   );
 }
 
-function TracksPanel({ project, stages, act }) {
+const STAGE = { PRELIMINARY_DESIGN: 3, APPROVAL: 5, BUILDING_PLANS: 6, PMC: 7, SUBMISSION: 8, COLLECTION: 9, COMPLETION: 10 };
+const DATE_LABELS = { 3: "Start date", 5: "Approved on", 8: "Submitted on", 9: "Collected on", 10: "Completed on" };
+
+function StageMoveDialog({ track, stageId, stages, onCancel, onSubmit }) {
+  const from = stages.find((s) => s.stageId === track.currentStageId);
+  const to = stages.find((s) => s.stageId === stageId);
+
+  const [date, setDate] = useState(new Date().toLocaleDateString("en-CA"));
+  const [note, setNote] = useState("");
+  const [days, setDays] = useState("");
+  const [amount, setAmount] = useState("");
+  const [complete, setComplete] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const showDate = DATE_LABELS[stageId] !== undefined;
+  const canPay = stageId === STAGE.APPROVAL || stageId === STAGE.COMPLETION;
+
+  async function submit(e) {
+    e.preventDefault();
+    setError(null);
+
+    if (stageId === STAGE.PRELIMINARY_DESIGN && !(Number(days) >= 1)) {
+      setError("Enter the number of working days.");
+      return;
+    }
+    if (amount !== "" && !(Number(amount) > 0)) {
+      setError("The payment must be more than zero.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSubmit({
+        stageId,
+        date: showDate && date ? date : null,
+        note: note.trim() || null,
+        workingDays: stageId === STAGE.PRELIMINARY_DESIGN ? Number(days) : null,
+        paymentAmount: canPay && amount !== "" ? Number(amount) : null,
+        completeProject: stageId === STAGE.COMPLETION ? complete : null,
+      });
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <form className="dialog form" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <h2>Move to {to?.name}</h2>
+        <p className="muted">
+          Track "{track.trackName}": {from?.name} → {to?.name}
+        </p>
+
+        {from?.stageId === STAGE.PMC && stageId === STAGE.BUILDING_PLANS && (
+          <p className="muted">This records that the PMC review found corrections are needed.</p>
+        )}
+        {from?.stageId === STAGE.PMC && stageId === STAGE.SUBMISSION && (
+          <p className="muted">This records that the PMC accepted the plans.</p>
+        )}
+
+        {stageId === STAGE.PRELIMINARY_DESIGN && (
+          <label>
+            Working days for the preliminary design (Monday to Friday) *
+            <input type="number" min="1" max="365" value={days} onChange={(e) => setDays(e.target.value)} />
+          </label>
+        )}
+
+        {showDate && (
+          <label>
+            {DATE_LABELS[stageId]}
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        )}
+
+        {canPay && (
+          <label>
+            {stageId === STAGE.APPROVAL
+              ? "Fee required to continue, if paid now"
+              : "Final payment, if paid now"}
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Leave empty to record it later under Payments"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </label>
+        )}
+
+        {stageId === STAGE.COMPLETION && (
+          <label className="check">
+            <input type="checkbox" checked={complete} onChange={(e) => setComplete(e.target.checked)} />
+            Also mark the project completed
+          </label>
+        )}
+
+        <label>
+          Note
+          <textarea
+            rows="2"
+            placeholder={stageId === STAGE.APPROVAL || stageId === 4 ? "Requested changes, approval details..." : ""}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+
+        {error && <p className="error">{error}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="primary" disabled={saving}>
+            {saving ? "Saving..." : "Move"}
+          </button>
+          <button type="button" className="secondary" onClick={onCancel}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function TracksPanel({ project, stages, act, reload }) {
   const [name, setName] = useState("");
   const [stageId, setStageId] = useState("");
+  const [pending, setPending] = useState(null); // { track, stageId } while the dialog is open
 
   async function add(e) {
     e.preventDefault();
@@ -93,11 +217,17 @@ function TracksPanel({ project, stages, act }) {
     if (ok) setName("");
   }
 
+  async function moveStage(payload) {
+    await put(`/api/projecttracks/${pending.track.projectTrackId}/stage`, payload);
+    setPending(null);
+    reload();
+  }
+
   return (
     <section className="panel">
       <h2>Tracks</h2>
       {project.tracks.length === 0 && (
-        <p className="muted">No tracks yet. Add one below, e.g. "Main Design" or "Permitting".</p>
+        <p className="muted">No tracks yet. Add one below, e.g. "Change Order #1".</p>
       )}
 
       {project.tracks.map((t) => (
@@ -109,13 +239,7 @@ function TracksPanel({ project, stages, act }) {
           <div className="row-controls">
             <select
               value={t.currentStageId}
-              onChange={(e) =>
-                act(() =>
-                  put(`/api/projecttracks/${t.projectTrackId}/stage`, {
-                    stageId: Number(e.target.value),
-                  })
-                )
-              }
+              onChange={(e) => setPending({ track: t, stageId: Number(e.target.value) })}
             >
               {stages.map((s) => (
                 <option key={s.stageId} value={s.stageId}>{s.name}</option>
@@ -125,9 +249,7 @@ function TracksPanel({ project, stages, act }) {
               value={t.status}
               onChange={(e) =>
                 act(() =>
-                  put(`/api/projecttracks/${t.projectTrackId}/status`, {
-                    status: e.target.value,
-                  })
+                  put(`/api/projecttracks/${t.projectTrackId}/status`, { status: e.target.value })
                 )
               }
             >
@@ -142,7 +264,7 @@ function TracksPanel({ project, stages, act }) {
       <form className="inline-form" onSubmit={add}>
         <input
           className="grow"
-          placeholder="New track name"
+          placeholder="New track name (for work running alongside the main one)"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -153,15 +275,35 @@ function TracksPanel({ project, stages, act }) {
         </select>
         <button type="submit" className="primary">Add track</button>
       </form>
+
+      {pending && (
+        <StageMoveDialog
+          track={pending.track}
+          stageId={pending.stageId}
+          stages={stages}
+          onCancel={() => setPending(null)}
+          onSubmit={moveStage}
+        />
+      )}
     </section>
   );
 }
 
+const PAYMENT_TYPES = [
+  ["design_approval", "Design approval fee"],
+  ["milestone", "Milestone payment"],
+  ["final", "Final payment"],
+  ["consultation", "Consultation fee"],
+];
+const paymentLabel = (t) => PAYMENT_TYPES.find(([v]) => v === t)?.[1] ?? t;
+
 function PaymentsPanel({ project, quoted, paid, balance, act }) {
   const [amount, setAmount] = useState("");
-  const [type, setType] = useState("deposit");
+  const [type, setType] = useState("design_approval");
   const [date, setDate] = useState("");
   const [note, setNote] = useState("");
+
+  const hasQuote = quoted > 0;
 
   async function add(e) {
     e.preventDefault();
@@ -193,7 +335,7 @@ function PaymentsPanel({ project, quoted, paid, balance, act }) {
       <div className="stats">
         <div className="stat">
           <div className="stat-label">Quoted</div>
-          <div className="stat-value">{money(quoted)}</div>
+          <div className="stat-value">{hasQuote ? money(quoted) : "Not quoted yet"}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Paid</div>
@@ -201,21 +343,28 @@ function PaymentsPanel({ project, quoted, paid, balance, act }) {
         </div>
         <div className="stat">
           <div className="stat-label">Balance due</div>
-          <div className={`stat-value ${balance > 0 ? "balance-due" : ""}`}>
-            {money(balance)}
+          <div className={`stat-value ${hasQuote && balance > 0 ? "balance-due" : ""}`}>
+            {hasQuote ? money(balance) : "—"}
           </div>
         </div>
       </div>
+      {!hasQuote && (
+        <p className="muted hint">Enter the quoted cost under Edit details to see the balance due.</p>
+      )}
 
       {payments.length === 0 && <p className="muted">No payments recorded yet.</p>}
       {payments.map((p) => (
         <div className="row" key={p.paymentId}>
           <div className="row-main">
             <strong>{money(p.amount)}</strong>
-            <span className="chip">{p.paymentType}</span>
+            <span className="chip">{paymentLabel(p.paymentType)}</span>
+            {p.receiptNumber && <span className="muted">{p.receiptNumber}</span>}
             {p.note && <span className="muted">{p.note}</span>}
           </div>
-          <span className="muted">{fmtDay(p.paymentDate)}</span>
+          <div className="row-controls">
+            <span className="muted">{fmtDay(p.paymentDate)}</span>
+            <Link className="link-button neutral" to={`/receipts/${p.paymentId}`}>Receipt</Link>
+          </div>
         </div>
       ))}
 
@@ -229,9 +378,9 @@ function PaymentsPanel({ project, quoted, paid, balance, act }) {
           onChange={(e) => setAmount(e.target.value)}
         />
         <select value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="deposit">deposit</option>
-          <option value="milestone">milestone</option>
-          <option value="final">final</option>
+          {PAYMENT_TYPES.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </select>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <input
@@ -242,7 +391,7 @@ function PaymentsPanel({ project, quoted, paid, balance, act }) {
         />
         <button type="submit" className="primary">Record payment</button>
       </form>
-      <p className="muted hint">Leave the date empty to use today.</p>
+      <p className="muted hint">Leave the date empty to use today. A receipt number is created automatically.</p>
     </section>
   );
 }
@@ -686,6 +835,41 @@ function AppointmentsPanel({ project }) {
             {i.address && <span className="muted">{i.address}</span>}
           </div>
           <span className="muted">{i.dueDate ? when(i.dueDate) : ""}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+function MilestonesPanel({ project }) {
+  const outcome =
+    project.pmcOutcome === "accepted"
+      ? "Accepted"
+      : project.pmcOutcome === "corrections_required"
+      ? "Corrections required"
+      : null;
+
+  const rows = [
+    [
+      "Preliminary design",
+      project.designWorkingDays
+        ? `${project.designWorkingDays} working days (Mon-Fri)${
+            project.designDueDate ? `, due ${fmtDay(project.designDueDate)}` : ""
+          }`
+        : null,
+    ],
+    ["Design approved", project.designApprovedOn ? fmtDay(project.designApprovedOn) : null],
+    ["PMC review", outcome],
+    ["Permit submitted", project.permitSubmittedOn ? fmtDay(project.permitSubmittedOn) : null],
+    ["Permit collected", project.permitCollectedOn ? fmtDay(project.permitCollectedOn) : null],
+  ];
+
+  return (
+    <section className="panel">
+      <h2>Milestones</h2>
+      {rows.map(([label, value]) => (
+        <div className="row" key={label}>
+          <span>{label}</span>
+          <span className={value ? "" : "muted"}>{value ?? "—"}</span>
         </div>
       ))}
     </section>
