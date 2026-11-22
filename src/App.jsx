@@ -17,6 +17,7 @@ import Team from "./views/Team";
 import Account from "./views/Account";
 import Receipt from "./views/Receipt";
 import Settings from "./views/Settings";
+import SiteVisit from "./views/SiteVisit";
 
 export default function App() {
   const { ready, session, isAdmin } = useAuth();
@@ -50,6 +51,7 @@ export default function App() {
             }
           />
           <Route path="/site-visits/new" element={<NewWorkItem type="site_visit" />} />
+          <Route path="/site-visits/:id" element={<SiteVisit />} />
           <Route
             path="/tasks"
             element={

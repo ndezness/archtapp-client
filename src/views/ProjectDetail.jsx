@@ -521,14 +521,14 @@ function DocumentsPanel({ project, reload }) {
       run(() => api(`/api/documents/${d.documentId}`, { method: "DELETE" }));
     }
   }
-
+  const projectDocs = project.documents.filter((d) => d.workItemId == null);
   const latest = {};
-  project.documents.forEach((d) => {
+  projectDocs.forEach((d) => {
     const key = d.fileName.toLowerCase();
     if (!latest[key] || d.versionNumber > latest[key]) latest[key] = d.versionNumber;
   });
 
-  const docs = [...project.documents].sort(
+  const docs = [...projectDocs].sort(
     (a, b) => a.fileName.localeCompare(b.fileName) || b.versionNumber - a.versionNumber
   );
 
@@ -827,16 +827,30 @@ function AppointmentsPanel({ project }) {
         </p>
       )}
 
-      {sorted.map((i) => (
-        <div className={`row ${i.isDone ? "old" : ""}`} key={i.workItemId}>
-          <div className="row-main">
-            <strong>{i.type === "consultation" ? "Consultation" : `Visit ${i.visitNumber}`}</strong>
-            {i.isDone && <span className="chip completed">done</span>}
-            {i.address && <span className="muted">{i.address}</span>}
+      {sorted.map((i) => {
+        const photoCount = project.documents.filter((d) => d.workItemId === i.workItemId).length;
+        return (
+          <div className={`row ${i.isDone ? "old" : ""}`} key={i.workItemId}>
+            <div className="row-main">
+              {i.type === "site_visit" ? (
+                <Link className="row-link" to={`/site-visits/${i.workItemId}`}>
+                  <strong>Visit {i.visitNumber}</strong>
+                </Link>
+              ) : (
+                <strong>Consultation</strong>
+              )}
+              {i.isDone && <span className="chip completed">done</span>}
+              {photoCount > 0 && (
+                <span className="chip">
+                  {photoCount} {photoCount === 1 ? "photo" : "photos"}
+                </span>
+              )}
+              {i.address && <span className="muted">{i.address}</span>}
+            </div>
+            <span className="muted">{i.dueDate ? when(i.dueDate) : ""}</span>
           </div>
-          <span className="muted">{i.dueDate ? when(i.dueDate) : ""}</span>
-        </div>
-      ))}
+        );
+      })}
     </section>
   );
 }

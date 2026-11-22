@@ -130,7 +130,11 @@ export default function WorkItems({ type, title, newPath, newLabel, empty }) {
 
               <div className="work-body">
                 <div className="card-title">
-                  {item.title}
+                  {item.type === "site_visit" ? (
+                    <Link className="row-link" to={`/site-visits/${item.workItemId}`}>{item.title}</Link>
+                  ) : (
+                    item.title
+                  )}
                   {item.type === "consultation" && <span className="chip chip-gap">Consultation</span>}
                   {item.type === "site_visit" && item.visitNumber && (
                     <span className="chip chip-gap">Visit {item.visitNumber}</span>
