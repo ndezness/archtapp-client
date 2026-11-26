@@ -8,6 +8,7 @@ const FIELDS = [
   ["BusinessAddress", "Address"],
   ["ReferencePrefix", "Reference prefix (the BDL in BDL-2026-001)"],
   ["ConsultationFee", "Default consultation fee"],
+  ["GoogleCalendarId", "Google Calendar ID (leave empty to turn calendar checks off)"],
 ];
 
 export default function Settings() {
@@ -16,6 +17,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [calStatus, setCalStatus] = useState(null);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (data && !form) setForm(data);
@@ -38,6 +41,17 @@ export default function Settings() {
       setSaveError(err.message);
     }
     setSaving(false);
+  }
+
+  async function testCalendar() {
+    setTesting(true);
+    setCalStatus(null);
+    try {
+      setCalStatus(await api("/api/calendar/status"));
+    } catch (err) {
+      setCalStatus({ ok: false, message: err.message });
+    }
+    setTesting(false);
   }
 
   if (loading || !form) return <p className="muted">Loading settings...</p>;
@@ -77,6 +91,20 @@ export default function Settings() {
           </button>
         </div>
       </form>
+
+      <section className="panel" style={{ marginTop: "1.5rem", maxWidth: "32rem" }}>
+        <h2>Google Calendar</h2>
+        <p className="muted">
+          Appointments are checked against this calendar, personal events included, and added to it
+          automatically. Save the settings first, then test the connection.
+        </p>
+        <button className="secondary" onClick={testCalendar} disabled={testing}>
+          {testing ? "Testing..." : "Test calendar connection"}
+        </button>
+        {calStatus && (
+          <p className={calStatus.ok ? "success" : "error"}>{calStatus.message}</p>
+        )}
+      </section>
     </div>
   );
 }
